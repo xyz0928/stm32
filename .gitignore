@@ -1,32 +1,3 @@
-<<<<<<< HEAD
-# Keil Generated output files in the sub-directories .\Listings and .\Objects
-*.lst
-*.o
-*.d
-*.crf
-*.lnp
-*.axf
-*.htm
-*.build_log.htm
-*.dep
-*.iex
-*.i
-*_2i
-*.l2p
-*.fed
-*.map
-*.hex
-*.bin
-*.Bak
-
-#Keil Project screen layout file
-*.uvguix.*
-*.uvgui.*
-
-#JLINK file
-JLinkLog.txt
-*.dbgconf
-=======
 *.bak
 *.ddk
 *.edk
@@ -53,4 +24,3 @@ JLinkLog.txt
 *.map
 *.Administrator
 *.uvopt
->>>>>>> 8e98c3983d596cd86a980cd19af7246eb376f1c4
