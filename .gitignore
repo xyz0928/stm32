@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Keil Generated output files in the sub-directories .\Listings and .\Objects
 *.lst
 *.o
@@ -25,3 +26,31 @@
 #JLINK file
 JLinkLog.txt
 *.dbgconf
+=======
+*.bak
+*.ddk
+*.edk
+*.lst
+*.lnp
+*.mpf
+*.mpj
+*.obj
+*.omf
+*.plg
+*.rpt
+*.tmp
+*.__i
+*.crf
+*.o
+*.d
+*.axf
+*.tra
+*.dep          
+JLinkLog.txt
+*.iex
+*.htm
+*.sct
+*.map
+*.Administrator
+*.uvopt
+>>>>>>> 8e98c3983d596cd86a980cd19af7246eb376f1c4
