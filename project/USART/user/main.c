@@ -73,6 +73,7 @@ int main(void)
 	}
 }
 
+
 void My_USART_SendBytes(USART_TypeDef *USARTx, uint8_t *pData, uint16_t Size)
 {
 	for(uint32_t i = 0; i < Size; i++)
@@ -90,11 +91,6 @@ void My_USART_SendBytes(USART_TypeDef *USARTx, uint8_t *pData, uint16_t Size)
 	//查询TC标志位，TC=0=RESET,未完成；TC=1=SET,完成	
 }
 
-
-
-void My_USART_SendBytes(USART_TypeDef *USARTx, uint8_t *pData, uint16_t Size);
-//定义一个函数，使用串口一次性发送多个字节
-//参数：串口名称，要发送的数据（数组），发送字节数量 
 
 void My_USART1_Init(void)
 {
@@ -146,6 +142,7 @@ void My_USART1_Init(void)
 	USART_Cmd(USART1, ENABLE);//USART模块使能
 	                //DISABLE,禁止
 }
+
 
 int fputc(int ch, FILE *f)//重定义fputc，通过串口发送数据
 {
