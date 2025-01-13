@@ -8,17 +8,45 @@ int My_I2C_SendBytes(I2C_TypeDef *I2Cx, uint8_t Addr, uint8_t *pData, uint16_t S
 //      2.从机地址，A6...A0,RW#，左对齐
 //      3.要发送的数据
 //      4.发送数据的数量（字节）
-//返回值：0-成功；1-寻址失败；2-发送的数据被拒绝
+//返回值：0-成功；-1-寻址失败；-2-发送的数据被拒绝
+
+int My_I2C_ReceiveBytes(I2C_TypeDef *I2Cx, uint8_t Addr, uint8_t *pBuffer, uint16_t Size);
+//定义函数，通过I2C从从机读取多个字节
+//参数：1.2.同上
+//      3.接受缓冲区（数组）
+//      4.要接收数据的数量（字节）
+//返回值：0-读取成功；-1-寻址失败
+
+void My_OnBoardLED(void);
+//板载LED，PC13，输出开漏
 
 int main(void)
 {
 	My_I2C_Init();
 	
-	//OLED屏，从机地址0x78,01111000(RW#)
-	uint8_t commands[] = {0x00, 0x8d, 0x14, 0xaf, 0xa5};
-	//点亮OLED  1.命令流 2.3.使能电荷泵 4.打开屏幕开关 5.让屏幕全量
+	My_OnBoardLED();//初始化板载LED
 	
+	//OLED屏(从机)地址0x78,01111000(RW#)
+	uint8_t commands[] = {0x00, 0x8d, 0x14, 0xaf, 0xa5};
 	My_I2C_SendBytes(I2C1, 0x78, commands, 5);
+	//作用：点亮OLED  1.命令流 2.3.使能电荷泵 4.打开屏幕开关 5.让屏幕全量
+	
+	//接收的字节
+	uint8_t rcvd;
+	
+	My_I2C_ReceiveBytes(I2C1, 0x78, &rcvd, 1);
+	if((rcvd & (0x01<<6)) == 0)
+	//0x01=00000001,左移6位:01000000
+	//任何数&1=任何数，任何数&0=0
+	//从OLED读1个字节8bits:D7 D6...D1 D0
+	//只有D6=0，屏幕亮；D6=1，屏幕灭
+	{
+		GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET);//0,亮
+	}
+	else
+	{
+		GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_SET);//1,灭
+	}
 	
 	while(1)
 	{
@@ -139,3 +167,125 @@ int My_I2C_SendBytes(I2C_TypeDef *I2Cx, uint8_t Addr, uint8_t *pData, uint16_t S
 	I2C_GenerateSTOP(I2Cx, ENABLE);
 	return 0;//数据发送成功
 }
+
+
+int My_I2C_ReceiveBytes(I2C_TypeDef *I2Cx, uint8_t Addr, uint8_t *pBuffer, uint16_t Size)
+{
+	//1.发送起始位
+	I2C_GenerateSTART(I2Cx, ENABLE);//产生起始位
+	while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_SB) == RESET);//0
+	//SB:起始位发送完成标志位，1-完成，0-未发送
+	
+	//2.寻址
+	//清除AF标志位
+	I2C_ClearFlag(I2Cx, I2C_FLAG_AF);
+	
+	//发送7位地址+RW#
+	I2C_SendData(I2Cx, Addr | 0x01);
+	//0x01=00000001,任何数|0=任何数，任何数|1=1，最后一位是主机读数据，写1
+	
+	//等待从机应答
+	while(1)
+	{
+		if(I2C_GetFlagStatus(I2Cx, I2C_FLAG_ADDR) == SET)//1
+			//寻址成功
+		{
+			break;
+		}
+		if(I2C_GetFlagStatus(I2Cx, I2C_FLAG_AF) == SET)//1
+			//应答失败标志位
+		{
+			I2C_GenerateSTOP(I2Cx, ENABLE);//停止
+			return -1;//寻址失败
+		}
+	}
+	//3.接收数据
+	//接收1个字节
+	if(Size == 1)
+	{
+		//清除ADDR，寻址完成后必须清除（先清除SR1,后SR2）
+		I2C_ReadRegister(I2Cx, I2C_Register_SR1);
+		I2C_ReadRegister(I2Cx, I2C_Register_SR2);
+		
+		//ACK写0,STOP写1
+		I2C_AcknowledgeConfig(I2Cx, DISABLE);//0,发NAK
+		I2C_GenerateSTOP(I2Cx, ENABLE);//1,发送停止位
+		
+		//等待接收数据寄存器非空，有数据
+		while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_RXNE) == RESET);//0
+		//RXNE:接收数据寄存器非空标志位，0-空，1-非空
+		
+		//读取数据
+		pBuffer[0] = I2C_ReceiveData(I2Cx);//放在第一个
+	}
+	//接收2个字节
+	else if(Size == 2)
+	{
+		//清除ADDR
+		I2C_ReadRegister(I2Cx, I2C_Register_SR1);
+		I2C_ReadRegister(I2Cx, I2C_Register_SR2);
+		
+		//ACK=1
+		I2C_AcknowledgeConfig(I2Cx, ENABLE);//1,发ACK
+		
+		//等待RXNE=1非空,有数据
+		while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_RXNE) == RESET);//0
+		
+		//读取第一个字节
+		pBuffer[0] = I2C_ReceiveData(I2Cx);
+		
+		//ACK=0,STOP=1
+		I2C_AcknowledgeConfig(I2Cx, DISABLE);//ACK=0,发NAK
+		I2C_GenerateSTOP(I2Cx, ENABLE);//STOP=1,发送停止位
+		
+		//等待RXNE非空
+		while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_RXNE) == RESET);//0
+		
+		//读取第二个字节
+		pBuffer[1] = I2C_ReceiveData(I2Cx);
+	}
+	//读取多个字节
+	else
+	{
+		//清除ADDR
+		I2C_ReadRegister(I2Cx, I2C_Register_SR1);
+		I2C_ReadRegister(I2Cx, I2C_Register_SR2);
+		
+		//ACK=1
+		I2C_AcknowledgeConfig(I2Cx, ENABLE);//1
+		
+		for(uint16_t i = 0; i < Size - 1; i++)
+		//size个字节，循环size-1次
+		{
+			//等待RXNE=1非空
+			while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_RXNE) == RESET);//0空，0->1
+			
+			//读取数据size-1个字节
+			pBuffer[i] = I2C_ReceiveData(I2Cx);
+		}
+		//ACK=0,STOP=1
+		I2C_AcknowledgeConfig(I2Cx, DISABLE);//0,发NAK
+		I2C_GenerateSTOP(I2Cx, ENABLE);//1,发送停止位
+		
+		//等待RXNE=1非空
+		while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_RXNE) == RESET);
+		
+		//读取最后一个数据
+		pBuffer[Size - 1] = I2C_ReceiveData(I2Cx);
+	}
+	return 0;//接收成功
+}
+
+
+void My_OnBoardLED(void)
+{
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);//开启GPIOC时钟
+	GPIO_InitTypeDef GPIO_InitStruct;//声明结构体变量
+	GPIO_InitStruct.GPIO_Pin = GPIO_Pin_13;
+	GPIO_InitStruct.GPIO_Mode = GPIO_Mode_Out_OD;//通用输出开漏
+	GPIO_InitStruct.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_Init(GPIOC, &GPIO_InitStruct);
+	
+}
+
+
