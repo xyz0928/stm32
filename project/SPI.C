@@ -20,7 +20,9 @@ void App_SPI1_Init(void)
 	//1.初始化IO引脚
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);//AFIO模块使能
 	GPIO_PinRemapConfig(GPIO_Remap_SPI1, ENABLE);//SPI1重映射
-	
+	GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable, ENABLE);//PA15重映射成普通IO引脚
+	//PA15默认是JTDI，调试接口默认占用
+
 	GPIO_InitTypeDef GPIO_InitStruct;
 	
 	//主机SCK,PB3,AFPP,2MHz
@@ -45,11 +47,13 @@ void App_SPI1_Init(void)
 	
 	//主机普通IO引脚向从机CS(NSS)写1/0
 	//PA15,Out_PP,2MHz
+	//PA15重映射用于是否选从机NSS发高（不选中）低（选中）电压
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
 	GPIO_InitStruct.GPIO_Pin = GPIO_Pin_15;
 	GPIO_InitStruct.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStruct.GPIO_Speed = GPIO_Speed_2MHz;
 	GPIO_Init(GPIOA, &GPIO_InitStruct);
+	GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_SET);//1高电压
 	
 	//2.SPI初始化
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1, ENABLE);//使能SPI1模块时钟
@@ -66,11 +70,11 @@ void App_SPI1_Init(void)
 	SPI_InitStruct.SPI_DataSize = SPI_DataSize_8b;//8bit
 								//SPI_DataSize_16b//16bit
 	//时钟的极性
-	SPI_InitStruct.SPI_CPOL = SPI_CPOL_High;//高极性,1
-							//SPI_CPOL_Low//低极性,0
+	SPI_InitStruct.SPI_CPOL = SPI_CPOL_Low;//低极性,0
+							//SPI_CPOL_High//高极性,1
 	//时钟的相位
-	SPI_InitStruct.SPI_CPHA = SPI_CPHA_2Edge;//相位1,第2边沿采集,11:MODE3
-							//SPI_CPHA_1Edge//相位0,第1边沿采集,10:MODE2
+	SPI_InitStruct.SPI_CPHA = SPI_CPHA_1Edge;//相位0,第1边沿采集,00:MODE0
+							//SPI_CPHA_2Edge//相位1,第2边沿采集
 	//比特位传输顺序
 	SPI_InitStruct.SPI_FirstBit = SPI_FirstBit_MSB;//先传最高有效位7,6..1,0
 							    //SPI_FirstBit_MSB//先传最低有效位0,1..6,7
