@@ -1,4 +1,6 @@
 #include "stm32f10x.h"
+#include "button.h"
+Button_TypeDef button;//声明一个按钮
 
 void App_SPI1_Init(void);//SPI引脚初始化
 
@@ -11,18 +13,37 @@ void App_W25Q64_SaveByte(uint8_t byte);
 //把W25Q64保存的字节读取
 uint8_t App_W25Q64_LoadByte(void);
 
-uint8_t a = 0; 
+//uint8_t a = 0; //测试
+
+void App_OnBoardLED(void);//初始化板载LED
+
+void App_Button_Init(void);
+
+void button_clicked_cb(uint8_t clicks);//回调函数
 
 int main(void)
 {
 	App_SPI1_Init();
 	
-	App_W25Q64_SaveByte(0x12);//00001100=12
+	//App_W25Q64_SaveByte(0x12);//00001100=12，测试
+	//a = App_W25Q64_LoadByte();//a=0x12，测试
+
+	App_OnBoardLED();
+	App_Button_Init();//初始化
 	
-	a = App_W25Q64_LoadByte();//a=0x12
+	uint8_t byte = App_W25Q64_LoadByte();
+	if(byte == 0)//上次保存的是0x00,灭
+	{
+		GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_SET);//灭
+	}
+	else//上次保存的是0x01,亮
+	{
+		GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET);//亮
+	}
 
 	while(1)
 	{
+		My_Button_Proc(&button);//进程函数
 	}
 }
 
@@ -244,4 +265,46 @@ uint8_t App_W25Q64_LoadByte(void)
 	
 	return buffer[0];
 }
+
+
+void App_OnBoardLED(void)
+	//PC13,OUT_OD
+{
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
+	GPIO_InitTypeDef GPIO_InitStruct;
+	GPIO_InitStruct.GPIO_Pin = GPIO_Pin_13;
+	GPIO_InitStruct.GPIO_Mode = GPIO_Mode_Out_OD;
+	GPIO_InitStruct.GPIO_Speed = GPIO_Speed_2MHz;
+	GPIO_Init(GPIOC, &GPIO_InitStruct);
+}
+
+
+void App_Button_Init(void)
+	//PA0
+{
+	Button_InitTypeDef Button_InitStruct = {0};
+	Button_InitStruct.GPIOx = GPIOA;
+	Button_InitStruct.GPIO_Pin = GPIO_Pin_0;
+	Button_InitStruct.button_clicked_cb = button_clicked_cb;
+	My_Button_Init(&button, &Button_InitStruct);
+}
+
+
+void button_clicked_cb(uint8_t clicks)
+{
+	if(clicks == 1)//按1次按钮
+	{
+		if(GPIO_ReadInputDataBit(GPIOC, GPIO_Pin_13) == Bit_SET)//灭
+		{
+			GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET);//亮
+			App_W25Q64_SaveByte(0x01);//保存0x01
+		}
+		else//亮
+		{
+			GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_SET);//灭
+			App_W25Q64_SaveByte(0x00);//保存0x00
+		}
+	}
+}
+
 
