@@ -5,10 +5,22 @@ void App_SPI1_Init(void);//SPI引脚初始化
 //SPI以主机身份收发数据
 void App_SPI_MasterTransmitReceive(SPI_TypeDef *SPIx, const uint8_t *pDataTx, uint8_t *pDataRx, uint16_t Size);
 
+//往W25Q64保存1个字节
+void App_W25Q64_SaveByte(uint8_t byte);
+
+//把W25Q64保存的字节读取
+uint8_t App_W25Q64_LoadByte(void);
+
+uint8_t a = 0; 
+
 int main(void)
 {
 	App_SPI1_Init();
 	
+	App_W25Q64_SaveByte(0x12);//00001100=12
+	
+	a = App_W25Q64_LoadByte();//a=0x12
+
 	while(1)
 	{
 	}
@@ -127,4 +139,109 @@ void App_SPI_MasterTransmitReceive(SPI_TypeDef *SPIx, const uint8_t *pDataTx, ui
 	SPI_Cmd(SPIx, DISABLE);
 }
 
+
+void App_W25Q64_SaveByte(uint8_t byte)
+{
+	uint8_t buffer[10];
+	
+	//1.写使能，主机发0x06
+	buffer[0] = 0x06;//6
+	GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_RESET);//NSS=0,选中W25Q64
+	App_SPI_MasterTransmitReceive(SPI1, buffer, buffer, 1);//收发1个字节数据
+	GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_SET);//NSS=1，取消选中
+	
+	//2.扇区擦除，主机发0x20+24位地址（擦除区域的首地址）
+	buffer[0] = 0x20;//20
+	buffer[1] = 0x00;//0
+	buffer[2] = 0x00;
+	buffer[3] = 0x00;
+	GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_RESET);//NSS=0,选中W25Q64
+	App_SPI_MasterTransmitReceive(SPI1, buffer, buffer, 4);//收发1个字节数据
+	GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_SET);//NSS=1，取消选中
+	
+	//3.等待空闲
+	while(1)
+	{
+		GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_RESET);//NSS=0,选中W25Q64
+		
+		//写0x05
+		buffer[0] = 0x05;//主机先发0x05
+		App_SPI_MasterTransmitReceive(SPI1, buffer, buffer, 1);
+		
+		//读状态寄存器1
+		buffer[0] = 0xff;//主机再接收一个字节
+		//0xff=11111111,MOSI为高电压
+		App_SPI_MasterTransmitReceive(SPI1, buffer, buffer, 1);
+		
+		GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_SET);//NSS=1，取消选中
+		
+		if((buffer[0] & 0x01) == 0)
+			//结果最后一位是BUSY忙标志位，1-操作中，0-操作完成
+		{
+			break;
+		}
+	}
+	
+	//4.写使能
+	buffer[0] = 0x06;//6
+	GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_RESET);//NSS=0,选中W25Q64
+	App_SPI_MasterTransmitReceive(SPI1, buffer, buffer, 1);//收发1个字节数据
+	GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_SET);//NSS=1，取消选中
+	
+	//5.页编程，主机发0x02+24位地址+要发的数据
+	GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_RESET);//NSS=0,选中W25Q64
+	buffer[0] = 0x02;
+	buffer[1] = 0x00;
+	buffer[2] = 0x00;
+	buffer[3] = 0x00;
+	buffer[4] = byte;//要发的数据
+	App_SPI_MasterTransmitReceive(SPI1, buffer, buffer, 5);
+	GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_SET);//NSS=1，取消选中
+	
+	//6.等待空闲
+	while(1)
+	{
+		GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_RESET);//NSS=0,选中W25Q64
+		
+		//写0x05
+		buffer[0] = 0x05;//主机先发0x05
+		App_SPI_MasterTransmitReceive(SPI1, buffer, buffer, 1);
+		
+		//读状态寄存器1
+		buffer[0] = 0xff;//主机再接收一个字节
+		//0xff=11111111,MOSI为高电压
+		App_SPI_MasterTransmitReceive(SPI1, buffer, buffer, 1);
+		
+		GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_SET);//NSS=1，取消选中
+		
+		if((buffer[0] & 0x01) == 0)
+			//结果最后一位是BUSY忙标志位，1-操作中，0-操作完成
+		{
+			break;
+		}
+	}
+}
+
+
+uint8_t App_W25Q64_LoadByte(void)
+{
+	//读取1个字节
+	uint8_t buffer[10];
+	
+	GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_RESET);//NSS=0,选中W25Q64
+	
+	buffer[0] = 0x03;//主机发0x03+24位地址
+	buffer[1] = 0x00;
+	buffer[2] = 0x00;
+	buffer[3] = 0x00;
+	App_SPI_MasterTransmitReceive(SPI1, buffer, buffer, 4);
+	
+	//接收1个字节
+	buffer[0] = 0xff;
+	App_SPI_MasterTransmitReceive(SPI1, buffer, buffer, 1);
+	
+	GPIO_WriteBit(GPIOA, GPIO_Pin_15, Bit_SET);//NSS=1，取消选中
+	
+	return buffer[0];
+}
 
