@@ -47,5 +47,41 @@ void App_SPI1_Init(void)
 	GPIO_InitStruct.GPIO_Mode = GPIO_Mode_Out_PP;
 	GPIO_InitStruct.GPIO_Speed = GPIO_Speed_2MHz;
 	GPIO_Init(GPIOA, &GPIO_InitStruct);
+	
+	//2.SPI初始化
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1, ENABLE);//使能SPI1模块时钟
+	SPI_InitTypeDef SPI_InitStruct;
+	//选择SPI通信方向
+	SPI_InitStruct.SPI_Direction = SPI_Direction_2Lines_FullDuplex;//2线全双工
+								//SPI_Direction_2Lines_ReadOnly//2线只读
+								//SPI_Direction_1Line_Tx//单线发送
+								//SPI_Direction_1Line_Rx//单线接收
+	//选择SPI模式
+	SPI_InitStruct.SPI_Mode = SPI_Mode_Master;//主机,STM32
+							//SPI_Mode_Slave//从机,W25Q64
+	//数据宽度
+	SPI_InitStruct.SPI_DataSize = SPI_DataSize_8b;//8bit
+								//SPI_DataSize_16b//16bit
+	//时钟的极性
+	SPI_InitStruct.SPI_CPOL = SPI_CPOL_High;//高极性,1
+							//SPI_CPOL_Low//低极性,0
+	//时钟的相位
+	SPI_InitStruct.SPI_CPHA = SPI_CPHA_2Edge;//相位1,第2边沿采集,11:MODE3
+							//SPI_CPHA_1Edge//相位0,第1边沿采集,10:MODE2
+	//比特位传输顺序
+	SPI_InitStruct.SPI_FirstBit = SPI_FirstBit_MSB;//先传最高有效位7,6..1,0
+							    //SPI_FirstBit_MSB//先传最低有效位0,1..6,7
+	//选择波特率分频器的分频系数
+	SPI_InitStruct.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_64;
+	//时钟72MHz,波特率:72/64=1.125MHz,满足上面引脚初始化的最大输出速度
+	
+	//NSS选择
+	//多主机：主机1主动向主机2通信，主机1IO向主机2NSS写0低电压，主机2变从机
+	//单主机：NSS接高电压（软、硬）
+	SPI_InitStruct.SPI_NSS = SPI_NSS_Soft;//软件NSS,通过内部NSS写0低电压1高电压
+						   //SPI_NSS_Hard//硬件NSS，外接3.3V
+	SPI_NSSInternalSoftwareConfig(SPI1, SPI_NSSInternalSoft_Set);//1
+	//通过内部NSS写0低电压1高电压
+	SPI_Init(SPI1, &SPI_InitStruct);
 }
 
