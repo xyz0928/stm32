@@ -2,6 +2,9 @@
 
 void App_SPI1_Init(void);//SPI引脚初始化
 
+//SPI以主机身份收发数据
+void App_SPI_MasterTransmitReceive(SPI_TypeDef *SPIx, const uint8_t *pDataTx, uint8_t *pDataRx, uint16_t Size);
+
 int main(void)
 {
 	App_SPI1_Init();
@@ -84,4 +87,40 @@ void App_SPI1_Init(void)
 	//通过内部NSS写0低电压1高电压
 	SPI_Init(SPI1, &SPI_InitStruct);
 }
+
+
+void App_SPI_MasterTransmitReceive(SPI_TypeDef *SPIx, const uint8_t *pDataTx, uint8_t *pDataRx, uint16_t Size)
+{
+	//1.闭合SPI总开关
+	SPI_Cmd(SPIx, ENABLE);
+	
+	//2.先发送第一个字节
+	SPI_I2S_SendData(SPIx, pDataTx[0]);
+	//I2S总线，音频，与SPI合并
+	
+	//3.循环Size-1次，收发Size-1个字节
+	for(uint16_t i = 0; i < Size - 1; i++)
+	{
+		//向TDR写数据
+		while(SPI_I2S_GetFlagStatus(SPIx, SPI_I2S_FLAG_TXE) == RESET);//0
+		//查询TXE发送数据寄存器空标志位，1-空
+		//上面发的第一个字节进入移位寄存器中，TXE=1，写第二个字节
+		SPI_I2S_SendData(SPIx, pDataTx[i + 1]);//发送第i+1个字节
+		
+		//从RDR读数据
+		while(SPI_I2S_GetFlagStatus(SPIx, SPI_I2S_FLAG_RXNE) == RESET);//0
+		//查询RXNE接收数据寄存器非空标志位，1-非空
+		//接收移位寄存器中的字节进入RXNE
+		pDataRx[i] = SPI_I2S_ReceiveData(SPIx);//接收第i个字节
+	}
+	
+	//4.读取最后一个字节
+	//上面for循环少读了最后一个字节
+	while(SPI_I2S_GetFlagStatus(SPIx, SPI_I2S_FLAG_RXNE) == RESET);//0
+	pDataRx[Size-1] = SPI_I2S_ReceiveData(SPIx);
+	
+	//5.断开SPI总开关
+	SPI_Cmd(SPIx, DISABLE);
+}
+
 
