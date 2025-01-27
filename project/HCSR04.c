@@ -65,10 +65,10 @@ void App_USART1_Init(void)
 	GPIO_InitStruct.GPIO_Mode = GPIO_Mode_IPU;
 	GPIO_Init(GPIOA, &GPIO_InitStruct);
 	
-	//2.初始化USAER1
+	//2.初始化USART1
 	//2.1开启USART1时钟
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
-	//2.2初始化USAER1参数
+	//2.2初始化USART1参数
 	USART_InitTypeDef USART_InitStruct;
 	USART_InitStruct.USART_BaudRate = 115200;//波特率
 	USART_InitStruct.USART_Mode = USART_Mode_Tx | USART_Mode_Rx;//收发双向
