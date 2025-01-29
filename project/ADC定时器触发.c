@@ -118,8 +118,8 @@ void App_ADC1_Init(void)
 //	ADC1_InitStruct.ADC_ExternalTrigConv = ADC_ExternalTrigInjecConv_None;//软件启动
 	//双ADC模式
 	ADC1_InitStruct.ADC_Mode = ADC_Mode_Independent;//独立模式
-	//注入序列的通道
-	ADC1_InitStruct.ADC_NbrOfChannel = 1;//使用第一个通道（注入序列4个通道）
+//	//常规序列的通道（注入序列用不到）
+//	ADC1_InitStruct.ADC_NbrOfChannel = 1;//使用第一个通道（注入序列4个通道）
 	//扫描模式
 	ADC1_InitStruct.ADC_ScanConvMode = DISABLE;//不使用扫描模式
 	ADC_Init(ADC1, &ADC1_InitStruct);
